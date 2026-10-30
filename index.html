@@ -183,6 +183,179 @@ td strong { font-weight:850; }
   .form-grid { grid-template-columns:1fr; }
   .form-item.full { grid-column:auto; }
 }
+
+
+/* ---------- Mobile and responsive image fixes ---------- */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+.brand,
+.brandline {
+  min-width: 0;
+}
+
+.brand > div:first-child {
+  flex: 0 0 180px;
+  min-width: 0;
+}
+
+.brand > div:first-child img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: 120px;
+  object-fit: contain;
+}
+
+.group-card,
+.points-card,
+.stat,
+.table-wrap {
+  min-width: 0;
+}
+
+.table-wrap {
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 760px) {
+  .brandline {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .brand {
+    width: 100%;
+    gap: 10px;
+  }
+
+  .brand > div:first-child {
+    flex: 0 0 105px !important;
+    width: 105px !important;
+    max-width: 105px !important;
+    height: 78px !important;
+    margin: 0 !important;
+  }
+
+  .brand > div:first-child img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain;
+  }
+
+  .brand > div:last-child {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  h1 {
+    overflow-wrap: anywhere;
+    font-size: clamp(18px, 5vw, 23px);
+  }
+
+  .top-actions {
+    width: 100%;
+  }
+
+  .top-actions button {
+    flex: 1 1 auto;
+  }
+
+  .hero-strip {
+    gap: 7px;
+  }
+
+  .pill {
+    font-size: 11px;
+  }
+
+  .controls {
+    width: 100%;
+  }
+
+  .controls .control {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .team-select-card select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .points-card .table-wrap {
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  main {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .brand > div:first-child {
+    flex-basis: 82px !important;
+    width: 82px !important;
+    max-width: 82px !important;
+    height: 68px !important;
+  }
+
+  .eyebrow {
+    font-size: 9px;
+    letter-spacing: 1px;
+  }
+
+  h1 {
+    font-size: 18px;
+    letter-spacing: -0.4px;
+  }
+
+  .stats {
+    gap: 8px;
+  }
+
+  .stat {
+    padding: 12px;
+  }
+
+  .stat-value {
+    font-size: 23px;
+  }
+
+  .tab {
+    padding: 11px 12px;
+    font-size: 12px;
+  }
+
+  .group-title {
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .group-title span {
+    text-align: right;
+  }
+
+  .team-row {
+    padding: 11px;
+  }
+
+  .modal {
+    padding: 16px;
+  }
+
+  footer {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    overflow-wrap: anywhere;
+  }
+}
+
 </style>
 </head>
 <body>
