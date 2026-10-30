@@ -413,7 +413,7 @@ img {
           <select class="control" id="statusFilter"><option value="all">All statuses</option><option>Upcoming</option><option>Live</option><option>Completed</option></select>
         </div>
       </div>
-      <div class="table-wrap"><table><thead><tr><th>Date / Day</th><th>Time</th><th>Group</th><th>Match</th><th>Status</th><th>Winner</th></tr></thead><tbody id="fixtureRows"></tbody></table></div>
+      <div class="table-wrap"><table><thead><tr><th>Date / Day</th><th>Time</th><th>Group</th><th>Match</th><th>Status</th><th>Winner</th><th>Action</th></tr></thead><tbody id="fixtureRows"></tbody></table></div>
     </section>
 
     <section class="panel" id="teams">
@@ -428,7 +428,7 @@ img {
     <section class="panel" id="points">
       <div class="section-head"><div><h2>Group points tables</h2><p>Separate live standings for Groups A, B and C, updated automatically when match results are saved.</p></div></div>
       <div class="points-grid" id="pointsGrid"></div>
-      <p class="points-help"><strong>Points:</strong> Win = 2, Loss = 0. <strong>NCD (Net Card Differential)</strong> = total card points scored − total card points conceded across completed matches; it is used like Net Run Rate as a tie-breaker. Enter both teams’ card points while updating a match for NCD to calculate correctly.</p>
+      <p class="points-help"><strong>NCD:</strong> (Opponent card points − Own card points) ÷ Total rounds. <strong>Win points:</strong> Entered manually in the match editor and awarded separately to the selected winner. These two point types are displayed separately and are never added together.</p>
     </section>
 
     <section class="panel" id="manage" hidden>
@@ -458,6 +458,8 @@ img {
         <div class="form-item"><label>Winner</label><select class="field" id="mWinner"><option value="">Not decided</option></select></div>
         <div class="form-item"><label>Team 1 card points</label><input class="field" id="mScore1" type="number" min="0" step="1" placeholder="Enter card points"></div>
         <div class="form-item"><label>Team 2 card points</label><input class="field" id="mScore2" type="number" min="0" step="1" placeholder="Enter card points"></div>
+        <div class="form-item"><label>Total rounds</label><input class="field" id="mRounds" type="number" min="1" step="1" placeholder="Enter total rounds"></div>
+        <div class="form-item"><label>Winner points (manual)</label><input class="field" id="mWinPoints" type="number" min="0" step="0.5" value="3" placeholder="Enter win points, e.g. 3 or 5"></div>
         <div class="form-item full"><label>Notes / score</label><input class="field" id="mNotes" placeholder="Optional score or note"></div>
       </div>
       <div class="modal-actions"><button type="button" class="ghost-btn" data-close="matchModal">Cancel</button><button class="primary-btn" type="submit">Save match</button></div>
@@ -592,7 +594,8 @@ function renderFixtures() {
     <tr><td><strong>${esc(m.date)}</strong><div class="muted small">${esc(m.day)}</div></td><td>${esc(m.time)}</td><td><span class="badge">Group ${esc(m.group)}</span></td>
     <td><strong>${esc(m.team1)}</strong><div class="muted small">vs</div><strong>${esc(m.team2)}</strong></td>
     <td>${statusBadge(m.status)}</td><td>${esc(m.winner||"—")}<div class="muted small">${esc(m.notes||"")}</div></td>
-    </tr>`).join(""):`<tr><td colspan="6" class="empty">No matches found.</td></tr>`;
+    <td><button type="button" class="primary-btn small" onclick="editMatch('${m.id}')">✏️ Edit</button></td>
+    </tr>`).join(""):`<tr><td colspan="7" class="empty">No matches found.</td></tr>`;
 }
 function renderTeamSelect() {
   const select=document.getElementById("teamSelect");
@@ -619,26 +622,37 @@ function sortMatches(a,b) {
   return parseDate(a.date)-parseDate(b.date) || (timeRank[a.time]??0)-(timeRank[b.time]??0);
 }
 function getGroupStandings(group) {
-  const rows = state.groups[group].map(team => ({name:team.name, played:0, won:0, lost:0, points:0, for:0, against:0}));
+  const rows = state.groups[group].map(team => ({name:team.name, played:0, won:0, lost:0, ncd:0, winPoints:0}));
   const byName = new Map(rows.map(r => [r.name, r]));
   state.matches.filter(m => m.group===group && m.status==="Completed").forEach(m => {
     const a=byName.get(m.team1), b=byName.get(m.team2);
     if(!a || !b) return;
     a.played++; b.played++;
-    if(m.winner===m.team1){a.won++;a.points+=2;b.lost++;}
-    else if(m.winner===m.team2){b.won++;b.points+=2;a.lost++;}
-    const s1=Number(m.score1), s2=Number(m.score2);
-    if(m.score1!==undefined && m.score1!=="" && m.score2!==undefined && m.score2!=="" && Number.isFinite(s1) && Number.isFinite(s2)){
-      a.for+=s1; a.against+=s2; b.for+=s2; b.against+=s1;
+    if(m.winner===m.team1){a.won++;b.lost++;}
+    else if(m.winner===m.team2){b.won++;a.lost++;}
+
+    // NCD is calculated independently for each team.
+    const s1=Number(m.score1), s2=Number(m.score2), rounds=Number(m.rounds);
+    if(m.score1!==undefined && m.score1!=="" && m.score2!==undefined && m.score2!=="" && Number.isFinite(s1) && Number.isFinite(s2) && Number.isFinite(rounds) && rounds>0){
+      a.ncd+=(s2-s1)/rounds;
+      b.ncd+=(s1-s2)/rounds;
+    }
+
+    // Manually entered winner points are tracked in their own column; never added to card points.
+    const manualWinPoints=Number(m.winPoints||0);
+    if(Number.isFinite(manualWinPoints) && manualWinPoints>0){
+      if(m.winner===m.team1) a.winPoints+=manualWinPoints;
+      else if(m.winner===m.team2) b.winPoints+=manualWinPoints;
     }
   });
-  rows.forEach(r=>r.ncd=r.for-r.against);
-  return rows.sort((a,b)=>b.points-a.points || b.ncd-a.ncd || b.won-a.won || a.name.localeCompare(b.name));
+  rows.forEach(r=>{r.ncd=Number(r.ncd.toFixed(3));r.winPoints=Number(r.winPoints.toFixed(3));});
+  // Rank by Win Points. NCD is used only as a tie-breaker; the two values are never added.
+  return rows.sort((a,b)=>b.winPoints-a.winPoints || b.ncd-a.ncd || b.won-a.won || a.name.localeCompare(b.name));
 }
 function renderPointsTables() {
   document.getElementById("pointsGrid").innerHTML=Object.keys(state.groups).map(g=>{
     const rows=getGroupStandings(g);
-    return `<div class="points-card"><div class="group-title"><strong>GROUP ${g} · POINTS TABLE</strong><span>6 TEAMS</span></div><div class="table-wrap" style="border:0;border-radius:0"><table><thead><tr><th>#</th><th>Team</th><th>P</th><th>W</th><th>L</th><th>Pts</th><th>NCD</th></tr></thead><tbody>${rows.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.name)}</td><td>${r.played}</td><td>${r.won}</td><td>${r.lost}</td><td><strong>${r.points}</strong></td><td class="${r.ncd>0?'ncd-positive':r.ncd<0?'ncd-negative':''}">${r.ncd>0?'+':''}${r.ncd}</td></tr>`).join("")}</tbody></table></div></div>`;
+    return `<div class="points-card"><div class="group-title"><strong>GROUP ${g} · POINTS TABLE</strong><span>6 TEAMS</span></div><div class="table-wrap" style="border:0;border-radius:0"><table><thead><tr><th>#</th><th>Team</th><th>P</th><th>W</th><th>L</th><th>Win Points</th><th>NCD</th></tr></thead><tbody>${rows.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.name)}</td><td>${r.played}</td><td>${r.won}</td><td>${r.lost}</td><td><strong>${Number.isInteger(r.winPoints)?r.winPoints:r.winPoints.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:2})}</strong></td><td><strong>${r.ncd>0?"+":""}${r.ncd.toFixed(3)}</strong></td></tr>`).join("")}</tbody></table></div></div>`;
   }).join("");
 }
 function renderManageGroups() { renderGroups("manageGroups"); }
@@ -670,12 +684,25 @@ function refreshWinnerOptions(selected="") {
 }
 document.getElementById("mTeam1").addEventListener("change",()=>refreshWinnerOptions());
 document.getElementById("mTeam2").addEventListener("change",()=>refreshWinnerOptions());
+function dateForInput(value) {
+  if (!value) return "";
+  // The imported fixture schedule uses dates such as "01 Nov 2026";
+  // HTML date inputs require the ISO format YYYY-MM-DD.
+  const iso = String(value).match(/^\d{4}-\d{2}-\d{2}$/);
+  if (iso) return value;
+  const parsed = new Date(value);
+  if (!Number.isNaN(parsed.getTime())) {
+    const y=parsed.getFullYear(), m=String(parsed.getMonth()+1).padStart(2,"0"), d=String(parsed.getDate()).padStart(2,"0");
+    return `${y}-${m}-${d}`;
+  }
+  return "";
+}
 function editMatch(id) {
   const m=state.matches.find(x=>x.id===id); if(!m)return;
   fillTeamOptions();
   document.getElementById("matchModalTitle").textContent="Update match";
   document.getElementById("matchId").value=m.id;
-  document.getElementById("mDate").value=m.date;
+  document.getElementById("mDate").value=dateForInput(m.date);
   document.getElementById("mTime").value=m.time;
   document.getElementById("mGroup").value=m.group;
   document.getElementById("mStatus").value=m.status;
@@ -685,6 +712,8 @@ function editMatch(id) {
   document.getElementById("mNotes").value=m.notes||"";
   document.getElementById("mScore1").value=m.score1??"";
   document.getElementById("mScore2").value=m.score2??"";
+  document.getElementById("mRounds").value=m.rounds??"";
+  document.getElementById("mWinPoints").value=m.winPoints??3;
   openModal("matchModal");
 }
 document.getElementById("addMatchBtn").addEventListener("click",()=>{
@@ -702,12 +731,14 @@ document.getElementById("matchForm").addEventListener("submit",e=>{
   if(t1===t2){alert("Choose two different teams.");return;}
   const id=document.getElementById("matchId").value || `M${Date.now()}`;
   const old=state.matches.find(m=>m.id===id);
-  const date=document.getElementById("mDate").value;
-  const dayName=new Date(date+"T12:00:00").toLocaleDateString("en-IN",{weekday:"long"});
+  const dateInput=document.getElementById("mDate").value;
+  const dateObj=new Date(dateInput+"T12:00:00");
+  const date=new Intl.DateTimeFormat("en-GB",{day:"2-digit",month:"short",year:"numeric"}).format(dateObj);
+  const dayName=dateObj.toLocaleDateString("en-IN",{weekday:"long"});
   const obj={id,date,day:old?.day||dayName,time:document.getElementById("mTime").value,group:document.getElementById("mGroup").value,
     team1:t1,captain1:findTeam(t1).captain,team2:t2,captain2:findTeam(t2).captain,
     status:document.getElementById("mStatus").value,winner:document.getElementById("mWinner").value,
-    score1:document.getElementById("mScore1").value,score2:document.getElementById("mScore2").value,notes:document.getElementById("mNotes").value};
+    score1:document.getElementById("mScore1").value,score2:document.getElementById("mScore2").value,rounds:document.getElementById("mRounds").value,winPoints:document.getElementById("mWinPoints").value,notes:document.getElementById("mNotes").value};
   if(old) state.matches=state.matches.map(m=>m.id===id?obj:m); else state.matches.push(obj);
   closeModal("matchModal"); saveState();
 });
@@ -738,8 +769,8 @@ document.getElementById("teamForm").addEventListener("submit",e=>{
 });
 document.getElementById("exportBtn").addEventListener("click",exportCSV);
 function exportCSV() {
-  const headers=["Date","Day","Time","Group","Team 1","Captain 1","Team 2","Captain 2","Status","Winner","Team 1 Card Points","Team 2 Card Points","Notes"];
-  const rows=state.matches.map(m=>[m.date,m.day,m.time,m.group,m.team1,m.captain1,m.team2,m.captain2,m.status,m.winner,m.score1??"",m.score2??"",m.notes]);
+  const headers=["Date","Day","Time","Group","Team 1","Captain 1","Team 2","Captain 2","Status","Winner","Team 1 Card Score","Team 2 Card Score","Total Rounds","Winner Points (Manual)","Notes"];
+  const rows=state.matches.map(m=>[m.date,m.day,m.time,m.group,m.team1,m.captain1,m.team2,m.captain2,m.status,m.winner,m.score1??"",m.score2??"",m.rounds??"",m.winPoints??"",m.notes]);
   const csv=[headers,...rows].map(row=>row.map(v=>`"${String(v??"").replace(/"/g,'""')}"`).join(",")).join("\r\n");
   const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
   const url=URL.createObjectURL(blob); const a=document.createElement("a");
