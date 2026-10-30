@@ -413,7 +413,7 @@ img {
           <select class="control" id="statusFilter"><option value="all">All statuses</option><option>Upcoming</option><option>Live</option><option>Completed</option></select>
         </div>
       </div>
-      <div class="table-wrap"><table><thead><tr><th>Date / Day</th><th>Time</th><th>Group</th><th>Match</th><th>Status</th><th>Winner</th></tr></thead><tbody id="fixtureRows"></tbody></table></div>
+      <div class="table-wrap"><table><thead><tr><th>Date / Day</th><th>Time</th><th>Group</th><th>Match</th><th>Status</th><th>Winner</th><th>Action</th></tr></thead><tbody id="fixtureRows"></tbody></table></div>
     </section>
 
     <section class="panel" id="teams">
@@ -594,7 +594,8 @@ function renderFixtures() {
     <tr><td><strong>${esc(m.date)}</strong><div class="muted small">${esc(m.day)}</div></td><td>${esc(m.time)}</td><td><span class="badge">Group ${esc(m.group)}</span></td>
     <td><strong>${esc(m.team1)}</strong><div class="muted small">vs</div><strong>${esc(m.team2)}</strong></td>
     <td>${statusBadge(m.status)}</td><td>${esc(m.winner||"—")}<div class="muted small">${esc(m.notes||"")}</div></td>
-    </tr>`).join(""):`<tr><td colspan="6" class="empty">No matches found.</td></tr>`;
+    <td><button type="button" class="primary-btn small" onclick="editMatch('${m.id}')">✏️ Edit</button></td>
+    </tr>`).join(""):`<tr><td colspan="7" class="empty">No matches found.</td></tr>`;
 }
 function renderTeamSelect() {
   const select=document.getElementById("teamSelect");
